@@ -28,6 +28,11 @@ Options :: struct {
 // Graph_Mode selects one RDF Dataset graph scope.
 Graph_Mode :: enum { Default, Named, Any_Named }
 
+// Origin records the first successful admission source for a quad. It is
+// optional metadata for graph consumers such as rule materializers; ordinary
+// RDF and SPARQL scans intentionally expose only the RDF quad value.
+Origin :: enum { Asserted, Inferred }
+
 // Quad_Pattern selects quads in one graph scope. False Has_* fields are wildcards.
 Quad_Pattern :: struct {
 	Graph_Mode:    Graph_Mode,
@@ -48,6 +53,7 @@ Scan_Sink :: #type proc(quad: rdf.Quad, user_data: rawptr) -> bool
 // until freeze, after which it may expose borrowed read-only Views.
 Graph :: struct {
 	quads:             [dynamic]rdf.Quad,
+	origins:           [dynamic]Origin,
 	owned:              [dynamic]string,
 	max_quads:          int,
 	max_lexical_bytes:  int,
@@ -90,6 +96,7 @@ init :: proc(graph: ^Graph, options: Options = {}) -> Error {
 	if options.Max_Quads < 0 || options.Max_Lexical_Bytes < 0 || options.Max_Terms < 0 do return .Invalid_Options
 	graph^ = Graph{
 		quads = make([dynamic]rdf.Quad),
+		origins = make([dynamic]Origin),
 		owned = make([dynamic]string),
 		max_quads = options.Max_Quads,
 		max_lexical_bytes = options.Max_Lexical_Bytes,
@@ -103,11 +110,19 @@ destroy :: proc(graph: ^Graph) {
 	destroy_indexes(graph)
 	for value in graph.owned do delete(value)
 	delete(graph.owned)
+	delete(graph.origins)
 	delete(graph.quads)
 	graph^ = {}
 }
 
 quad_count :: proc(graph: ^Graph) -> int { return len(graph.quads) }
+
+// origin_at returns immutable first-admission metadata for a retained quad.
+// Values are stable until destroy and remain available after freeze.
+origin_at :: proc(graph: ^Graph, index: int) -> (Origin, bool) {
+	if index < 0 || index >= len(graph.origins) do return .Asserted, false
+	return graph.origins[index], true
+}
 
 @(private) equal_term :: proc(left, right: rdf.Term) -> bool {
 	return left.kind == right.kind && left.value == right.value && strings.equal_fold(left.language, right.language) && left.datatype == right.datatype && left.scope == right.scope
@@ -360,9 +375,16 @@ term_count :: proc(graph: ^Graph) -> int {
 	return result, .None
 }
 
-// add copies one valid quad into the Dataset set. Duplicate quads succeed as a
-// no-op even after a limit is reached. Every failure leaves retained state unchanged.
+// add copies one asserted quad into the Dataset set. Duplicate quads succeed
+// as a no-op even after a limit is reached. Every failure leaves retained state
+// unchanged.
 add :: proc(graph: ^Graph, value: rdf.Quad) -> Error {
+	return add_with_origin(graph, value, .Asserted)
+}
+
+// add_with_origin copies one quad and retains its first admission origin.
+// A duplicate never overwrites its existing provenance, matching set semantics.
+add_with_origin :: proc(graph: ^Graph, value: rdf.Quad, origin: Origin) -> Error {
 	if graph.frozen do return .Sealed
 	if rdf.validate_quad_structure(value) != .None do return .Invalid_Quad
 	for known in graph.quads do if equal_quad(known, value) do return .None
@@ -378,6 +400,12 @@ add :: proc(graph: ^Graph, value: rdf.Quad) -> Error {
 	}
 	_, append_error := append(&graph.quads, stored)
 	if append_error != nil {
+		discard_owned_from(graph, owned_start)
+		return .Out_Of_Memory
+	}
+	_, append_error = append(&graph.origins, origin)
+	if append_error != nil {
+		resize(&graph.quads, len(graph.quads) - 1)
 		discard_owned_from(graph, owned_start)
 		return .Out_Of_Memory
 	}

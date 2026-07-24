@@ -90,6 +90,28 @@ test_graph_admission_is_atomic_across_duplicate_and_resource_boundaries :: proc(
 }
 
 @(test)
+test_graph_retains_first_quad_origin_without_affecting_set_admission :: proc(t: ^testing.T) {
+	value: Graph
+	testing.expect_value(t, init(&value), Error.None)
+	defer destroy(&value)
+	first := rdf.default_graph_quad(rdf.Triple{rdf.iri("urn:origin:first"), rdf.iri("urn:origin:predicate"), rdf.iri("urn:origin:object")})
+	second := rdf.default_graph_quad(rdf.Triple{rdf.iri("urn:origin:second"), rdf.iri("urn:origin:predicate"), rdf.iri("urn:origin:object")})
+	testing.expect_value(t, add(&value, first), Error.None)
+	testing.expect_value(t, add_with_origin(&value, first, .Inferred), Error.None)
+	testing.expect_value(t, add_with_origin(&value, second, .Inferred), Error.None)
+	testing.expect_value(t, quad_count(&value), 2)
+	first_origin, first_found := origin_at(&value, 0)
+	second_origin, second_found := origin_at(&value, 1)
+	testing.expect(t, first_found && second_found)
+	testing.expect_value(t, first_origin, Origin.Asserted)
+	testing.expect_value(t, second_origin, Origin.Inferred)
+	testing.expect_value(t, freeze(&value), Error.None)
+	frozen_origin, frozen_found := origin_at(&value, 1)
+	testing.expect(t, frozen_found)
+	testing.expect_value(t, frozen_origin, Origin.Inferred)
+}
+
+@(test)
 test_graph_preserves_blank_node_scope_in_dataset_identity :: proc(t: ^testing.T) {
 	value: Graph
 	testing.expect_value(t, init(&value), Error.None)

@@ -64,8 +64,8 @@ copy and without changing query semantics.
 - [x] Implement an `odin-sparql` adapter from an `odin-graph` immutable
   snapshot to `dataset.custom_view`.
 - [x] Prototype a copying reasoner adapter that maps its completed
-  asserted/default-graph closure into the shared contract without moving
-  inference rules into `odin-graph`.
+  asserted/default-graph closure and first asserted/inferred origin into the
+  shared contract without moving inference rules into `odin-graph`.
 - [x] Repeat the Garden named-graph fixture against the shared snapshot
   implementation.
 - [x] Compare Garden's default-graph closure SELECT, ASK, and CONSTRUCT query

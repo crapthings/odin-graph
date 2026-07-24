@@ -6,6 +6,9 @@
   indexes during `freeze`. Graph-scoped scans retain Dataset set semantics,
   insertion order, and early-stop behavior while selecting the same candidate
   shapes as the Reasoner Store.
+- Retain asserted/inferred first-origin metadata beside owned quads. The
+  Reasoner closure importer now preserves this metadata while retaining its
+  copying, independent-ownership boundary.
 
 ## v0.1.0 — 2026-07-24
 
