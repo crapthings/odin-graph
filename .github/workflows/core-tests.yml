@@ -29,9 +29,18 @@ jobs:
           path: _deps/odin-rdf
           fetch-depth: 0
           persist-credentials: false
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: crapthings/odin-sparql
+          ref: 76ec6b5f3ece65ff65131939106a5973333dd5f2 # v0.1.2
+          path: _deps/odin-sparql
+          fetch-depth: 0
+          persist-credentials: false
       - uses: laytan/setup-odin@8536d8fa450ec6f1bd9ddc84bbaaf16296c0051d # v2.12.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           release: dev-2026-07
       - name: Test the bounded graph kernel
         run: odin test graph -collection:odin-rdf="$GITHUB_WORKSPACE/_deps/odin-rdf"
+      - name: Test the SPARQL adapter
+        run: odin test adapter/sparql -collection:odin-rdf="$GITHUB_WORKSPACE/_deps/odin-rdf" -collection:odin-sparql="$GITHUB_WORKSPACE/_deps/odin-sparql"

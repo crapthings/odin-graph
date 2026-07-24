@@ -55,3 +55,10 @@ Garden, run:
 ```sh
 odin test graph -collection:odin-rdf=../odin-rdf
 ```
+
+The optional SPARQL adapter is separate from the kernel and can be verified
+against the pinned SPARQL release with:
+
+```sh
+odin test adapter/sparql -collection:odin-rdf=../odin-rdf -collection:odin-sparql=../odin-sparql
+```
