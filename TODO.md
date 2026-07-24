@@ -59,18 +59,22 @@ copy and without changing query semantics.
 
 ## P3 — consumer adapters and integration proof
 
-- [ ] Implement an `odin-sparql` adapter from an `odin-graph` immutable
+- [x] Implement an `odin-sparql` adapter from an `odin-graph` immutable
   snapshot to `dataset.custom_view`.
-- [ ] Prototype a reasoner adapter that maps its asserted/default-graph facts
-  into the shared contract without moving inference rules into `odin-graph`.
-- [ ] Repeat the Garden fixture against the shared snapshot implementation.
-- [ ] Compare asserted/inferred result sets and query answers with the existing
-  reasoner/SPARQL path.
-- [ ] Decide whether one common snapshot and index contract is genuinely used
-  by both production-quality paths.
+- [x] Prototype a copying reasoner adapter that maps its completed
+  asserted/default-graph closure into the shared contract without moving
+  inference rules into `odin-graph`.
+- [x] Repeat the Garden named-graph fixture against the shared snapshot
+  implementation.
+- [x] Compare Garden's default-graph closure SELECT, ASK, and CONSTRUCT query
+  answers with the existing reasoner/SPARQL snapshot path.
+- [ ] Decide whether one no-copy common snapshot and index contract is
+  genuinely used by both production-quality paths.
 
-**Exit gate:** Garden’s extraction conditions are met and a separate
-`odin-graph` repository has a minimal, independently useful public API.
+**Exit gate: not yet met.** The optional adapters and Garden equivalence tests
+are published migration evidence. The Reasoner importer currently copies its
+closure, and `Memory_Dataset` is still a separate representation; no shared
+index or no-copy runtime path has been proven for both consumers.
 
 ## P4 — evaluate a future odin-store (not implementation work)
 
