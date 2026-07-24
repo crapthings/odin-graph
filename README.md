@@ -62,3 +62,10 @@ against the pinned SPARQL release with:
 ```sh
 odin test adapter/sparql -collection:odin-rdf=../odin-rdf -collection:odin-sparql=../odin-sparql
 ```
+
+The separate Reasoner closure importer is a copying migration prototype. Test
+it against the pinned Reasoner release with:
+
+```sh
+odin test adapter/reasoner -collection:odin-rdf=../odin-rdf -collection:odin-reasoner=../odin-reasoner
+```
