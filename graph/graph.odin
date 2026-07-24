@@ -54,10 +54,35 @@ Graph :: struct {
 	max_terms:          int,
 	lexical_bytes:      int,
 	frozen:             bool,
+	by_subject:          One_Index,
+	by_predicate:        One_Index,
+	by_object:           One_Index,
+	by_graph:            One_Index,
+	by_subject_predicate: Two_Index,
+	by_subject_object:    Two_Index,
+	by_predicate_object:  Two_Index,
 }
 
 // View is a borrowed read-only handle into a frozen Graph.
 View :: struct { graph: ^Graph }
+
+// Index_Bucket borrows one retained term and lists matching quads in insertion
+// order. Indexes are built only during freeze, after all mutation is complete.
+@(private) Index_Bucket :: struct {
+	key: rdf.Term,
+	ids: [dynamic]int,
+}
+
+@(private) One_Index :: struct { buckets: [dynamic]Index_Bucket }
+
+@(private) Term_Pair :: struct { left, right: rdf.Term }
+
+@(private) Pair_Index_Bucket :: struct {
+	key: Term_Pair,
+	ids: [dynamic]int,
+}
+
+@(private) Two_Index :: struct { buckets: [dynamic]Pair_Index_Bucket }
 
 // init prepares a graph with optional retained-resource bounds.
 init :: proc(graph: ^Graph, options: Options = {}) -> Error {
@@ -75,6 +100,7 @@ init :: proc(graph: ^Graph, options: Options = {}) -> Error {
 
 // destroy releases all owned values. A zero or failed-to-initialize Graph is safe to destroy.
 destroy :: proc(graph: ^Graph) {
+	destroy_indexes(graph)
 	for value in graph.owned do delete(value)
 	delete(graph.owned)
 	delete(graph.quads)
@@ -89,6 +115,131 @@ quad_count :: proc(graph: ^Graph) -> int { return len(graph.quads) }
 
 @(private) equal_quad :: proc(left, right: rdf.Quad) -> bool {
 	return left.has_graph == right.has_graph && equal_term(left.subject, right.subject) && equal_term(left.predicate, right.predicate) && equal_term(left.object, right.object) && (!left.has_graph || equal_term(left.graph, right.graph))
+}
+
+@(private) equal_term_pair :: proc(left, right: Term_Pair) -> bool {
+	return equal_term(left.left, right.left) && equal_term(left.right, right.right)
+}
+
+@(private) destroy_one_index :: proc(index: ^One_Index) {
+	for bucket in index.buckets do delete(bucket.ids)
+	delete(index.buckets)
+	index^ = {}
+}
+
+@(private) destroy_two_index :: proc(index: ^Two_Index) {
+	for bucket in index.buckets do delete(bucket.ids)
+	delete(index.buckets)
+	index^ = {}
+}
+
+@(private) destroy_indexes :: proc(graph: ^Graph) {
+	destroy_one_index(&graph.by_subject)
+	destroy_one_index(&graph.by_predicate)
+	destroy_one_index(&graph.by_object)
+	destroy_one_index(&graph.by_graph)
+	destroy_two_index(&graph.by_subject_predicate)
+	destroy_two_index(&graph.by_subject_object)
+	destroy_two_index(&graph.by_predicate_object)
+}
+
+@(private) add_one_index :: proc(index: ^One_Index, key: rdf.Term, id: int) -> Error {
+	for bucket_index in 0..<len(index.buckets) {
+		if !equal_term(index.buckets[bucket_index].key, key) do continue
+		_, append_error := append(&index.buckets[bucket_index].ids, id)
+		if append_error != nil do return .Out_Of_Memory
+		return .None
+	}
+	bucket := Index_Bucket{key = key, ids = make([dynamic]int)}
+	_, append_error := append(&bucket.ids, id)
+	if append_error != nil {
+		delete(bucket.ids)
+		return .Out_Of_Memory
+	}
+	_, append_error = append(&index.buckets, bucket)
+	if append_error != nil {
+		delete(bucket.ids)
+		return .Out_Of_Memory
+	}
+	return .None
+}
+
+@(private) add_two_index :: proc(index: ^Two_Index, key: Term_Pair, id: int) -> Error {
+	for bucket_index in 0..<len(index.buckets) {
+		if !equal_term_pair(index.buckets[bucket_index].key, key) do continue
+		_, append_error := append(&index.buckets[bucket_index].ids, id)
+		if append_error != nil do return .Out_Of_Memory
+		return .None
+	}
+	bucket := Pair_Index_Bucket{key = key, ids = make([dynamic]int)}
+	_, append_error := append(&bucket.ids, id)
+	if append_error != nil {
+		delete(bucket.ids)
+		return .Out_Of_Memory
+	}
+	_, append_error = append(&index.buckets, bucket)
+	if append_error != nil {
+		delete(bucket.ids)
+		return .Out_Of_Memory
+	}
+	return .None
+}
+
+@(private) find_one_index :: proc(index: ^One_Index, key: rdf.Term) -> ([]int, bool) {
+	for bucket in index.buckets do if equal_term(bucket.key, key) do return bucket.ids[:], true
+	return nil, false
+}
+
+@(private) find_two_index :: proc(index: ^Two_Index, key: Term_Pair) -> ([]int, bool) {
+	for bucket in index.buckets do if equal_term_pair(bucket.key, key) do return bucket.ids[:], true
+	return nil, false
+}
+
+// build_indexes adds the same exact, two-term, and one-term candidate paths
+// used by the Reasoner Store. The Graph stays mutable until every allocation
+// succeeds, preserving its admission atomicity on an allocation failure.
+@(private) build_indexes :: proc(graph: ^Graph) -> Error {
+	destroy_indexes(graph)
+	graph.by_subject.buckets = make([dynamic]Index_Bucket)
+	graph.by_predicate.buckets = make([dynamic]Index_Bucket)
+	graph.by_object.buckets = make([dynamic]Index_Bucket)
+	graph.by_graph.buckets = make([dynamic]Index_Bucket)
+	graph.by_subject_predicate.buckets = make([dynamic]Pair_Index_Bucket)
+	graph.by_subject_object.buckets = make([dynamic]Pair_Index_Bucket)
+	graph.by_predicate_object.buckets = make([dynamic]Pair_Index_Bucket)
+	for quad, id in graph.quads {
+		if error := add_one_index(&graph.by_subject, quad.subject, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+		if error := add_one_index(&graph.by_predicate, quad.predicate, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+		if error := add_one_index(&graph.by_object, quad.object, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+		if quad.has_graph {
+			if error := add_one_index(&graph.by_graph, quad.graph, id); error != .None {
+				destroy_indexes(graph)
+				return error
+			}
+		}
+		if error := add_two_index(&graph.by_subject_predicate, {quad.subject, quad.predicate}, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+		if error := add_two_index(&graph.by_subject_object, {quad.subject, quad.object}, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+		if error := add_two_index(&graph.by_predicate_object, {quad.predicate, quad.object}, id); error != .None {
+			destroy_indexes(graph)
+			return error
+		}
+	}
+	return .None
 }
 
 @(private) contains_term :: proc(graph: ^Graph, value: rdf.Term) -> bool {
@@ -234,8 +385,11 @@ add :: proc(graph: ^Graph, value: rdf.Quad) -> Error {
 	return .None
 }
 
-// freeze makes a graph read-only. It is idempotent and does not copy quads.
+// freeze makes a graph read-only and builds immutable scan indexes. It is
+// idempotent and does not copy quads or term strings.
 freeze :: proc(graph: ^Graph) -> Error {
+	if graph.frozen do return .None
+	if error := build_indexes(graph); error != .None do return error
 	graph.frozen = true
 	return .None
 }
@@ -264,8 +418,45 @@ view :: proc(graph: ^Graph) -> (View, Error) {
 scan :: proc(view: View, pattern: Quad_Pattern, sink: Scan_Sink, sink_data: rawptr = nil) -> Error {
 	if view.graph == nil || !view.graph.frozen do return .Invalid_View
 	if sink == nil do return .Invalid_Sink
-	for quad in view.graph.quads {
+	graph := view.graph
+	if pattern.Has_Subject && pattern.Has_Predicate {
+		if ids, found := find_two_index(&graph.by_subject_predicate, {pattern.Subject, pattern.Predicate}); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Has_Subject && pattern.Has_Object {
+		if ids, found := find_two_index(&graph.by_subject_object, {pattern.Subject, pattern.Object}); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Has_Predicate && pattern.Has_Object {
+		if ids, found := find_two_index(&graph.by_predicate_object, {pattern.Predicate, pattern.Object}); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Graph_Mode == .Named && !pattern.Has_Subject && !pattern.Has_Predicate && !pattern.Has_Object {
+		if ids, found := find_one_index(&graph.by_graph, pattern.Graph); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Has_Subject {
+		if ids, found := find_one_index(&graph.by_subject, pattern.Subject); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Has_Predicate {
+		if ids, found := find_one_index(&graph.by_predicate, pattern.Predicate); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	if pattern.Has_Object {
+		if ids, found := find_one_index(&graph.by_object, pattern.Object); found do scan_candidates(graph, ids, pattern, sink, sink_data)
+		return .None
+	}
+	for quad in graph.quads {
 		if matches(pattern, quad) && !sink(quad, sink_data) do break
 	}
 	return .None
+}
+
+@(private) scan_candidates :: proc(graph: ^Graph, ids: []int, pattern: Quad_Pattern, sink: Scan_Sink, sink_data: rawptr) {
+	for id in ids {
+		if id < 0 || id >= len(graph.quads) do continue
+		quad := graph.quads[id]
+		if matches(pattern, quad) && !sink(quad, sink_data) do break
+	}
 }

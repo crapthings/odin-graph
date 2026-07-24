@@ -15,6 +15,12 @@ import rdf "odin-rdf:rdf"
 	return false
 }
 
+@(private) expect_scan_count :: proc(t: ^testing.T, source: View, pattern: Quad_Pattern, expected: int) {
+	state: Count_State
+	testing.expect_value(t, scan(source, pattern, count_quad, &state), Error.None)
+	testing.expect_value(t, state.count, expected)
+}
+
 @(test)
 test_graph_keeps_default_and_named_source_data_isolated :: proc(t: ^testing.T) {
 	value: Graph
@@ -107,4 +113,44 @@ test_graph_preserves_blank_node_scope_in_dataset_identity :: proc(t: ^testing.T)
 	second_matches: Count_State
 	testing.expect_value(t, scan(view, {Has_Subject = true, Subject = rdf.blank_node("same", second_scope)}, count_quad, &second_matches), Error.None)
 	testing.expect_value(t, second_matches.count, 1)
+}
+
+@(test)
+test_graph_indexed_scans_preserve_all_constant_pattern_results :: proc(t: ^testing.T) {
+	value: Graph
+	testing.expect_value(t, init(&value), Error.None)
+	defer destroy(&value)
+	s1, s2 := rdf.iri("urn:index:s1"), rdf.iri("urn:index:s2")
+	p1, p2 := rdf.iri("urn:index:p1"), rdf.iri("urn:index:p2")
+	o1, o2 := rdf.iri("urn:index:o1"), rdf.iri("urn:index:o2")
+	triples := [4]rdf.Triple{{s1, p1, o1}, {s1, p1, o2}, {s1, p2, o1}, {s2, p1, o1}}
+	for triple in triples do testing.expect_value(t, add(&value, rdf.default_graph_quad(triple)), Error.None)
+	source_a, source_b := rdf.iri("urn:index:source-a"), rdf.iri("urn:index:source-b")
+	testing.expect_value(t, add(&value, rdf.named_graph_quad(rdf.Triple{s1, p1, o1}, source_a)), Error.None)
+	testing.expect_value(t, add(&value, rdf.named_graph_quad(rdf.Triple{s1, p1, o2}, source_b)), Error.None)
+	testing.expect_value(t, freeze(&value), Error.None)
+	view, view_error := view(&value)
+	testing.expect_value(t, view_error, Error.None)
+	subject_predicate_ids, subject_predicate_found := find_two_index(&value.by_subject_predicate, {s1, p1})
+	testing.expect(t, subject_predicate_found)
+	testing.expect_value(t, len(subject_predicate_ids), 4)
+	subject_ids, subject_found := find_one_index(&value.by_subject, s1)
+	testing.expect(t, subject_found)
+	testing.expect_value(t, len(subject_ids), 5)
+	graph_ids, graph_found := find_one_index(&value.by_graph, source_a)
+	testing.expect(t, graph_found)
+	testing.expect_value(t, len(graph_ids), 1)
+
+	expect_scan_count(t, view, {}, 4)
+	expect_scan_count(t, view, {Has_Subject = true, Subject = s1}, 3)
+	expect_scan_count(t, view, {Has_Predicate = true, Predicate = p1}, 3)
+	expect_scan_count(t, view, {Has_Object = true, Object = o1}, 3)
+	expect_scan_count(t, view, {Has_Subject = true, Subject = s1, Has_Predicate = true, Predicate = p1}, 2)
+	expect_scan_count(t, view, {Has_Subject = true, Subject = s1, Has_Object = true, Object = o1}, 2)
+	expect_scan_count(t, view, {Has_Predicate = true, Predicate = p1, Has_Object = true, Object = o1}, 2)
+	expect_scan_count(t, view, {Has_Subject = true, Subject = s1, Has_Predicate = true, Predicate = p1, Has_Object = true, Object = o1}, 1)
+	expect_scan_count(t, view, {Has_Subject = true, Subject = rdf.iri("urn:index:missing")}, 0)
+	expect_scan_count(t, view, {Graph_Mode = .Named, Graph = source_a}, 1)
+	expect_scan_count(t, view, {Graph_Mode = .Named, Graph = rdf.iri("urn:index:missing")}, 0)
+	expect_scan_count(t, view, {Graph_Mode = .Any_Named, Has_Subject = true, Subject = s1}, 2)
 }

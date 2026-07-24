@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Build immutable subject, predicate, object, named-graph, and two-term scan
+  indexes during `freeze`. Graph-scoped scans retain Dataset set semantics,
+  insertion order, and early-stop behavior while selecting the same candidate
+  shapes as the Reasoner Store.
+
 ## v0.1.0 — 2026-07-24
 
 First experimental release of the bounded in-memory RDF Dataset kernel.

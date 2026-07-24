@@ -25,7 +25,8 @@ The first implementation milestone provides:
 
 - RDF Dataset set semantics across default and named graphs;
 - copied/owned RDF values with explicit blank-node identity rules;
-- bounded graph-scoped scans without speculative indexes;
+- bounded graph-scoped scans with immutable freeze-time exact, two-term, and
+  one-term candidate indexes;
 - freeze-in-place immutable views suitable for a later public `odin-sparql`
   Dataset adapter;
 - documented resource limits, ownership, and error behavior.

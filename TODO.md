@@ -50,7 +50,9 @@ method is justified solely by a future persistent store.
 - [x] Implement freeze-in-place immutable views.
 - [x] Implement synchronous graph-scoped scans with correct wildcard and
   early-stop behavior.
-- [ ] Add only evidence-backed indexes; measure scan work before optimizing.
+- [x] Add only evidence-backed immutable indexes. Core tests measure the
+  reduced exact/two-term/one-term and named-graph candidate buckets against
+  the pattern shapes already used by the Reasoner Store and SPARQL adapter.
 - [x] Gate with ownership, limit, duplicate, graph-scope, and freeze tests.
 
 **Exit gate:** The kernel's own immutable snapshot is sufficient to back
