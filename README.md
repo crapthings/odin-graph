@@ -46,3 +46,12 @@ independent `odin-store` only when a concrete requirement exists.
 The staged work and acceptance conditions are in [TODO.md](TODO.md). Do not
 import it from a component until the Garden integration gate has produced the
 required cross-component equivalence evidence.
+
+## Local verification
+
+With `odin-rdf` checked out beside this repository at the release pinned by
+Garden, run:
+
+```sh
+odin test graph -collection:odin-rdf=../odin-rdf
+```

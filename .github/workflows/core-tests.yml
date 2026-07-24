@@ -1,0 +1,37 @@
+name: Core tests
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/core-tests.yml'
+      - 'graph/**'
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/core-tests.yml'
+      - 'graph/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Bounded graph kernel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          repository: crapthings/odin-rdf
+          ref: daa350521a8ad9f79012bb1fefa96cf00938f3f1 # v0.31.1
+          path: _deps/odin-rdf
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: laytan/setup-odin@8536d8fa450ec6f1bd9ddc84bbaaf16296c0051d # v2.12.2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          release: dev-2026-07
+      - name: Test the bounded graph kernel
+        run: odin test graph -collection:odin-rdf="$GITHUB_WORKSPACE/_deps/odin-rdf"
