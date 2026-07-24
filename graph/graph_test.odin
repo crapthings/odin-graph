@@ -112,6 +112,30 @@ test_graph_retains_first_quad_origin_without_affecting_set_admission :: proc(t: 
 }
 
 @(test)
+test_graph_retains_first_inferred_derivation_supports :: proc(t: ^testing.T) {
+	value: Graph
+	testing.expect_value(t, init(&value), Error.None)
+	defer destroy(&value)
+	asserted := rdf.default_graph_quad(rdf.Triple{rdf.iri("urn:derivation:ada"), rdf.iri("urn:derivation:knows"), rdf.iri("urn:derivation:bea")})
+	inferred := rdf.default_graph_quad(rdf.Triple{rdf.iri("urn:derivation:ada"), rdf.iri("urn:derivation:type"), rdf.iri("urn:derivation:person")})
+	testing.expect_value(t, add(&value, asserted), Error.None)
+	testing.expect_value(t, add_with_origin(&value, inferred, .Inferred), Error.None)
+	testing.expect_value(t, record_derivation(&value, 0, 7, []int{0}), Error.Invalid_Derivation)
+	testing.expect_value(t, record_derivation(&value, 1, 0, []int{0}), Error.Invalid_Derivation)
+	testing.expect_value(t, record_derivation(&value, 1, 7, []int{0}), Error.None)
+	testing.expect_value(t, record_derivation(&value, 1, 9, []int{0}), Error.None)
+	testing.expect_value(t, derivation_count(&value), 1)
+	derivation, found := derivation_at(&value, 0)
+	testing.expect(t, found)
+	testing.expect_value(t, derivation.quad_index, 1)
+	testing.expect_value(t, derivation.rule_id, u32(7))
+	testing.expect_value(t, len(derivation.supports), 1)
+	testing.expect_value(t, derivation.supports[0], 0)
+	testing.expect_value(t, freeze(&value), Error.None)
+	testing.expect_value(t, record_derivation(&value, 1, 7, []int{0}), Error.Sealed)
+}
+
+@(test)
 test_graph_preserves_blank_node_scope_in_dataset_identity :: proc(t: ^testing.T) {
 	value: Graph
 	testing.expect_value(t, init(&value), Error.None)

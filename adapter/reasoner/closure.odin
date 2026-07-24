@@ -1,11 +1,13 @@
 // Package graph_reasoner_adapter copies a completed reasoner closure into a
-// frozen odin-graph Graph. It retains asserted/inferred first-origin metadata,
-// while inference execution and Store-native IDs remain in odin-reasoner; this
-// is a migration prototype, not a replacement Store.
+// frozen odin-graph Graph. It retains asserted/inferred first-origin metadata
+// and can copy opaque first-support derivations, while inference execution and
+// Store-native IDs remain in odin-reasoner; this is a migration prototype, not
+// a replacement Store.
 package graph_reasoner_adapter
 
 import graph "../../graph"
 import rdf "odin-rdf:rdf"
+import rule "odin-reasoner:reasoner/rule"
 import store "odin-reasoner:reasoner/store"
 
 Error :: enum { None, Store_Error, Graph_Error }
@@ -18,6 +20,17 @@ Error :: enum { None, Store_Error, Graph_Error }
 // it, and leaves source unchanged. On any error target is reset and safe to
 // destroy. Graph admission options make the copy all-or-nothing for callers.
 init :: proc(target: ^graph.Graph, source: ^store.Store, options: graph.Options = {}) -> Error {
+	return copy_closure(target, source, nil, options)
+}
+
+// init_with_derivations additionally copies first-support records from the
+// latest successful rule materialization. Graph stores opaque rule IDs and
+// Graph-local quad indexes, never Store IDs or rule definitions.
+init_with_derivations :: proc(target: ^graph.Graph, source: ^store.Store, materializer: ^rule.Materializer, options: graph.Options = {}) -> Error {
+	return copy_closure(target, source, materializer, options)
+}
+
+@(private) copy_closure :: proc(target: ^graph.Graph, source: ^store.Store, materializer: ^rule.Materializer, options: graph.Options) -> Error {
 	if graph.init(target, options) != .None do return .Graph_Error
 	for index in 0..<store.fact_count(source) {
 		id, _, origin, found := store.fact_at(source, index)
@@ -33,6 +46,31 @@ init :: proc(target: ^graph.Graph, source: ^store.Store, options: graph.Options 
 		if graph.add_with_origin(target, rdf.default_graph_quad(triple), graph_origin(origin)) != .None {
 			graph.destroy(target)
 			return .Graph_Error
+		}
+	}
+	if materializer != nil {
+		for derivation_index in 0..<rule.derivation_count(materializer) {
+			derivation, found := rule.derivation_at(materializer, derivation_index)
+			if !found {
+				graph.destroy(target)
+				return .Store_Error
+			}
+			quad_index := int(derivation.fact_id) - 1
+			supports := make([dynamic]int, 0, len(derivation.supports))
+			for support in derivation.supports {
+				_, append_error := append(&supports, int(support) - 1)
+				if append_error != nil {
+					delete(supports)
+					graph.destroy(target)
+					return .Graph_Error
+				}
+			}
+			record_error := graph.record_derivation(target, quad_index, u32(derivation.rule_id), supports[:])
+			delete(supports)
+			if record_error != .None {
+				graph.destroy(target)
+				return .Graph_Error
+			}
 		}
 	}
 	if graph.freeze(target) != .None {

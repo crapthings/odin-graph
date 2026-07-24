@@ -66,8 +66,9 @@ odin test adapter/sparql -collection:odin-rdf=../odin-rdf -collection:odin-sparq
 
 The separate Reasoner closure importer is a copying migration prototype. It
 retains each fact's asserted/inferred first origin, but not the Store's native
-term/fact IDs or its inference engine. Test it against the pinned Reasoner
-revision with:
+term/fact IDs or its inference engine. Its optional derivation-aware entry
+also retains opaque rule IDs and first-support Graph indexes. Test it against
+the pinned Reasoner revision with:
 
 ```sh
 odin test adapter/reasoner -collection:odin-rdf=../odin-rdf -collection:odin-reasoner=../odin-reasoner

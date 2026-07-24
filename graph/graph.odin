@@ -9,6 +9,7 @@ Error :: enum {
 	None,
 	Invalid_Options,
 	Invalid_Quad,
+	Invalid_Derivation,
 	Sealed,
 	Quad_Limit,
 	Lexical_Limit,
@@ -33,6 +34,14 @@ Graph_Mode :: enum { Default, Named, Any_Named }
 // RDF and SPARQL scans intentionally expose only the RDF quad value.
 Origin :: enum { Asserted, Inferred }
 
+// Derivation_View exposes one immutable first-support record. Rule_ID is an
+// opaque producer-defined value so Graph remains independent of any rule IR.
+Derivation_View :: struct {
+	quad_index: int,
+	rule_id:    u32,
+	supports:   []int,
+}
+
 // Quad_Pattern selects quads in one graph scope. False Has_* fields are wildcards.
 Quad_Pattern :: struct {
 	Graph_Mode:    Graph_Mode,
@@ -54,6 +63,7 @@ Scan_Sink :: #type proc(quad: rdf.Quad, user_data: rawptr) -> bool
 Graph :: struct {
 	quads:             [dynamic]rdf.Quad,
 	origins:           [dynamic]Origin,
+	derivations:       [dynamic]Derivation,
 	owned:              [dynamic]string,
 	max_quads:          int,
 	max_lexical_bytes:  int,
@@ -67,6 +77,12 @@ Graph :: struct {
 	by_subject_predicate: Two_Index,
 	by_subject_object:    Two_Index,
 	by_predicate_object:  Two_Index,
+}
+
+@(private) Derivation :: struct {
+	quad_index: int,
+	rule_id:    u32,
+	supports:   [dynamic]int,
 }
 
 // View is a borrowed read-only handle into a frozen Graph.
@@ -97,6 +113,7 @@ init :: proc(graph: ^Graph, options: Options = {}) -> Error {
 	graph^ = Graph{
 		quads = make([dynamic]rdf.Quad),
 		origins = make([dynamic]Origin),
+		derivations = make([dynamic]Derivation),
 		owned = make([dynamic]string),
 		max_quads = options.Max_Quads,
 		max_lexical_bytes = options.Max_Lexical_Bytes,
@@ -108,6 +125,8 @@ init :: proc(graph: ^Graph, options: Options = {}) -> Error {
 // destroy releases all owned values. A zero or failed-to-initialize Graph is safe to destroy.
 destroy :: proc(graph: ^Graph) {
 	destroy_indexes(graph)
+	for derivation in graph.derivations do delete(derivation.supports)
+	delete(graph.derivations)
 	for value in graph.owned do delete(value)
 	delete(graph.owned)
 	delete(graph.origins)
@@ -122,6 +141,16 @@ quad_count :: proc(graph: ^Graph) -> int { return len(graph.quads) }
 origin_at :: proc(graph: ^Graph, index: int) -> (Origin, bool) {
 	if index < 0 || index >= len(graph.origins) do return .Asserted, false
 	return graph.origins[index], true
+}
+
+derivation_count :: proc(graph: ^Graph) -> int { return len(graph.derivations) }
+
+// derivation_at returns one borrowed first-support record. The support slice is
+// valid until destroy and is immutable once the Graph has been frozen.
+derivation_at :: proc(graph: ^Graph, index: int) -> (Derivation_View, bool) {
+	if index < 0 || index >= len(graph.derivations) do return {}, false
+	derivation := graph.derivations[index]
+	return {quad_index = derivation.quad_index, rule_id = derivation.rule_id, supports = derivation.supports[:]}, true
 }
 
 @(private) equal_term :: proc(left, right: rdf.Term) -> bool {
@@ -410,6 +439,30 @@ add_with_origin :: proc(graph: ^Graph, value: rdf.Quad, origin: Origin) -> Error
 		return .Out_Of_Memory
 	}
 	graph.lexical_bytes += lexical_bytes
+	return .None
+}
+
+// record_derivation attaches one first-support record to an inferred retained
+// quad. It is a pre-freeze operation; all support indexes must refer to quads
+// already owned by this Graph. Repeated records never replace the first one.
+record_derivation :: proc(graph: ^Graph, quad_index: int, rule_id: u32, supports: []int) -> Error {
+	if graph.frozen do return .Sealed
+	if quad_index < 0 || quad_index >= len(graph.quads) || graph.origins[quad_index] != .Inferred || rule_id == 0 || len(supports) == 0 do return .Invalid_Derivation
+	for support in supports do if support < 0 || support >= len(graph.quads) do return .Invalid_Derivation
+	for known in graph.derivations do if known.quad_index == quad_index do return .None
+	owned := make([dynamic]int, 0, len(supports))
+	for support in supports {
+		_, append_error := append(&owned, support)
+		if append_error != nil {
+			delete(owned)
+			return .Out_Of_Memory
+		}
+	}
+	_, append_error := append(&graph.derivations, Derivation{quad_index = quad_index, rule_id = rule_id, supports = owned})
+	if append_error != nil {
+		delete(owned)
+		return .Out_Of_Memory
+	}
 	return .None
 }
 

@@ -9,6 +9,10 @@
 - Retain asserted/inferred first-origin metadata beside owned quads. The
   Reasoner closure importer now preserves this metadata while retaining its
   copying, independent-ownership boundary.
+- Retain optional first-support derivation metadata beside inferred quads:
+  opaque rule IDs plus Graph-local support indexes. The Reasoner adapter can
+  copy the latest RDFS materializer records without importing rule semantics
+  into the Graph kernel.
 
 ## v0.1.0 — 2026-07-24
 
