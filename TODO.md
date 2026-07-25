@@ -104,8 +104,11 @@ Graph kernel directly, so SPARQL has one owned Graph representation today.
 
 ## Non-negotiable exclusions for this workspace
 
-- [ ] Do not import `odin-graph` into `odin-rdf`, `odin-reasoner`, or
-  `odin-sparql` before P3.
+- [x] Keep `odin-rdf` and `odin-reasoner` independent from `odin-graph`.
+  `odin-sparql` now uses Graph for its development `Memory_Dataset`
+  implementation after the P3 contract and Garden evidence were established;
+  this is not evidence of a shared Reasoner Store or a public-release
+  dependency decision.
 - [ ] Do not implement disk files, WAL, MVCC, locks, replication, HTTP,
   SPARQL Update, or query planning here.
 - [ ] Do not create another RDF term model or change blank-node behavior
