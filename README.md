@@ -1,14 +1,15 @@
 # odin-graph
 
 > Experimental Git repository for the in-memory RDF graph kernel.
-> It is not yet published as a versioned dependency; the current
-> `odin-sparql` development checkout already uses it as `Memory_Dataset`
-> storage.
+> Its `v0.1.0` tag is a Garden-pinned experimental baseline, not a promise of
+> an independently supported public API release; the current `odin-sparql`
+> development checkout already uses it as `Memory_Dataset` storage.
 
 `odin-graph` is the in-memory RDF graph kernel for the Odin semantic
-ecosystem. Its public release boundary is extracted only from behavior that
-`odin-rdf`, `odin-reasoner`, and `odin-sparql` have proven in integration
-tests; development checkouts may integrate it before a release exists.
+ecosystem. The scope of any supported external release is extracted only from
+behavior that `odin-rdf`, `odin-reasoner`, and `odin-sparql` have proven in
+integration tests; development checkouts may integrate it before that scope is
+declared stable.
 
 ```mermaid
 flowchart LR
