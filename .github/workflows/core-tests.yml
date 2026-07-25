@@ -5,11 +5,13 @@ on:
     paths:
       - '.github/workflows/core-tests.yml'
       - 'graph/**'
+      - 'adapter/**'
   push:
     branches: [main]
     paths:
       - '.github/workflows/core-tests.yml'
       - 'graph/**'
+      - 'adapter/**'
   workflow_dispatch:
 
 permissions:
