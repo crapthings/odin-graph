@@ -1,11 +1,14 @@
 # odin-graph
 
-> Experimental Git repository for the candidate in-memory RDF graph kernel.
-> It is not yet published or a runtime dependency of another Odin component.
+> Experimental Git repository for the in-memory RDF graph kernel.
+> It is not yet published as a versioned dependency; the current
+> `odin-sparql` development checkout already uses it as `Memory_Dataset`
+> storage.
 
-`odin-graph` is the candidate in-memory RDF graph kernel for the Odin semantic
-ecosystem. It will be extracted only from behavior that `odin-rdf`,
-`odin-reasoner`, and `odin-sparql` have already proven in integration tests.
+`odin-graph` is the in-memory RDF graph kernel for the Odin semantic
+ecosystem. Its public release boundary is extracted only from behavior that
+`odin-rdf`, `odin-reasoner`, and `odin-sparql` have proven in integration
+tests; development checkouts may integrate it before a release exists.
 
 ```mermaid
 flowchart LR
@@ -45,8 +48,8 @@ independent `odin-store` only when a concrete requirement exists.
 ## Development plan
 
 The staged work and acceptance conditions are in [TODO.md](TODO.md). Do not
-import it from a component until the Garden integration gate has produced the
-required cross-component equivalence evidence.
+publish it as a component dependency until the Garden integration gate has
+produced the required cross-component equivalence evidence.
 
 ## Local verification
 
@@ -58,7 +61,7 @@ odin test graph -collection:odin-rdf=../odin-rdf
 ```
 
 The optional SPARQL adapter is separate from the kernel and can be verified
-against the pinned SPARQL release with:
+against the adjacent SPARQL development checkout with:
 
 ```sh
 odin test adapter/sparql -collection:odin-rdf=../odin-rdf -collection:odin-sparql=../odin-sparql
@@ -73,3 +76,26 @@ the pinned Reasoner revision with:
 ```sh
 odin test adapter/reasoner -collection:odin-rdf=../odin-rdf -collection:odin-reasoner=../odin-reasoner
 ```
+
+For development across the adjacent working trees, run:
+
+```sh
+sh scripts/verify-current-convergence.sh
+```
+
+It prints the exact checked-out revisions and runs the Graph kernel, both
+adapters, the bounded OWL RL W3C-evidence suite, and Garden's current-source
+integration packages. This is migration evidence only: it intentionally does
+not replace Garden's release-qualified, fixed-revision verification command.
+
+To additionally run SPARQL's full pinned W3C suites and its 50,000-case fuzz
+gate through the same local Graph checkout, use:
+
+```sh
+ODIN_GRAPH_FULL_CONFORMANCE=1 sh scripts/verify-current-convergence.sh
+```
+
+This is deliberately opt-in: it is a broader conformance run, not the fast
+development loop. SPARQL's W3C runners cache their compiled executables in
+`$ODIN_SPARQL_COLLECTION/.cache`, so that directory must be writable for the
+full mode; normal convergence writes only `odin-graph/.tmp`.

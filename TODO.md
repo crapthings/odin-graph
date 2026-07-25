@@ -71,13 +71,26 @@ copy and without changing query semantics.
   implementation.
 - [x] Compare Garden's default-graph closure SELECT, ASK, and CONSTRUCT query
   answers with the existing reasoner/SPARQL snapshot path.
-- [ ] Decide whether one no-copy common snapshot and index contract is
-  genuinely used by both production-quality paths.
+- [x] Provide a current-source convergence command that records adjacent
+  revisions and runs the Graph kernel, both adapters, bounded OWL RL evidence,
+  and Garden's default-graph/provenance integration packages without weakening
+  the pinned release gate. Its explicit full-conformance mode also delegates
+  to the pinned SPARQL W3C/fuzz verifier through the same local Graph checkout.
+- [x] Decide whether one no-copy common snapshot and index contract is
+  genuinely used by both production-quality paths: **not yet**. SPARQL's
+  `Memory_Dataset` already owns the Graph kernel directly, but the Reasoner
+  Store still needs transactional fact identity, inference indexes, origin,
+  and first-derivation metadata that Graph does not own. The public
+  `dataset.custom_view` boundary gives query compatibility without claiming a
+  second no-copy consumer. Reconsider only when a real caller needs those
+  Reasoner semantics inside `Memory_Dataset`, with an identity/lifecycle and
+  index-cost benchmark for both paths.
 
-**Exit gate: not yet met.** The optional adapters and Garden equivalence tests
-are published migration evidence. The Reasoner importer currently copies its
-closure, and `Memory_Dataset` is still a separate representation; no shared
-index or no-copy runtime path has been proven for both consumers.
+**Exit gate: met for the current scope.** The optional adapters and Garden
+equivalence tests are published migration evidence. The Reasoner importer
+intentionally copies its closure; this remains a documented migration boundary,
+not evidence of a common no-copy runtime. `Memory_Dataset` itself uses the
+Graph kernel directly, so SPARQL has one owned Graph representation today.
 
 ## P4 — evaluate a future odin-store (not implementation work)
 
