@@ -78,19 +78,20 @@ copy and without changing query semantics.
   to the pinned SPARQL W3C/fuzz verifier through the same local Graph checkout.
 - [x] Decide whether one no-copy common snapshot and index contract is
   genuinely used by both production-quality paths: **not yet**. SPARQL's
-  `Memory_Dataset` already owns the Graph kernel directly, but the Reasoner
-  Store still needs transactional fact identity, inference indexes, origin,
-  and first-derivation metadata that Graph does not own. The public
+  released `Memory_Dataset` is deliberately self-contained over `odin-rdf`;
+  its Graph adapter is optional migration evidence. The Reasoner Store still
+  needs transactional fact identity, inference indexes, origin, and
+  first-derivation metadata that Graph does not own. The public
   `dataset.custom_view` boundary gives query compatibility without claiming a
-  second no-copy consumer. Reconsider only when a real caller needs those
-  Reasoner semantics inside `Memory_Dataset`, with an identity/lifecycle and
-  index-cost benchmark for both paths.
+  second no-copy consumer. Reconsider only when a real caller needs a shared
+  Graph contract, with an identity/lifecycle and index-cost benchmark for both
+  paths.
 
 **Exit gate: met for the current scope.** The optional adapters and Garden
 equivalence tests are published migration evidence. The Reasoner importer
 intentionally copies its closure; this remains a documented migration boundary,
-not evidence of a common no-copy runtime. `Memory_Dataset` itself uses the
-Graph kernel directly, so SPARQL has one owned Graph representation today.
+not evidence of a common no-copy runtime. The released SPARQL core owns its
+separate RDF-only Memory_Dataset; Graph remains a distinct optional adapter.
 
 ## P4 — evaluate a future odin-store (not implementation work)
 
@@ -104,11 +105,10 @@ Graph kernel directly, so SPARQL has one owned Graph representation today.
 
 ## Non-negotiable exclusions for this workspace
 
-- [x] Keep `odin-rdf` and `odin-reasoner` independent from `odin-graph`.
-  `odin-sparql` now uses Graph for its development `Memory_Dataset`
-  implementation after the P3 contract and Garden evidence were established;
-  this is not evidence of a shared Reasoner Store or a public-release
-  dependency decision.
+- [x] Keep `odin-rdf`, `odin-reasoner`, and the released `odin-sparql` core
+  independent from `odin-graph`. `sparql/graph_dataset` and the Graph adapter
+  remain optional integration surfaces; this is not evidence of a shared
+  Reasoner Store or a public-release dependency decision.
 - [ ] Do not implement disk files, WAL, MVCC, locks, replication, HTTP,
   SPARQL Update, or query planning here.
 - [ ] Do not create another RDF term model or change blank-node behavior

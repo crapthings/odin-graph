@@ -2,14 +2,15 @@
 
 > Experimental Git repository for the in-memory RDF graph kernel.
 > Its `v0.1.0` tag is a Garden-pinned experimental baseline, not a promise of
-> an independently supported public API release; the current `odin-sparql`
-> development checkout already uses it as `Memory_Dataset` storage.
+> an independently supported public API release. `odin-sparql v0.7.0` keeps
+> its public `Memory_Dataset` self-contained over `odin-rdf`; Graph is an
+> optional adapter, not a core SPARQL release dependency.
 
-`odin-graph` is the in-memory RDF graph kernel for the Odin semantic
-ecosystem. The scope of any supported external release is extracted only from
-behavior that `odin-rdf`, `odin-reasoner`, and `odin-sparql` have proven in
-integration tests; development checkouts may integrate it before that scope is
-declared stable.
+`odin-graph` is an experimental in-memory RDF graph kernel for the Odin
+semantic ecosystem. The scope of any supported external release is extracted
+only from behavior that concrete consumers have proven in integration tests.
+Its SPARQL adapter remains useful migration evidence, but it does not determine
+the dependency contract of the released SPARQL core.
 
 ```mermaid
 flowchart LR
@@ -49,8 +50,8 @@ independent `odin-store` only when a concrete requirement exists.
 ## Development plan
 
 The staged work and acceptance conditions are in [TODO.md](TODO.md). Do not
-publish it as a component dependency until the Garden integration gate has
-produced the required cross-component equivalence evidence.
+promote it to a supported component dependency until the Garden extraction gate
+has produced the required multi-consumer evidence.
 
 ## Local verification
 
@@ -89,8 +90,8 @@ adapters, the bounded OWL RL W3C-evidence suite, and Garden's current-source
 integration packages. This is migration evidence only: it intentionally does
 not replace Garden's release-qualified, fixed-revision verification command.
 
-To additionally run SPARQL's full pinned W3C suites and its 50,000-case fuzz
-gate through the same local Graph checkout, use:
+To additionally run the optional Graph-adapter compatibility checks alongside
+SPARQL's full pinned W3C suites and its 50,000-case fuzz gate, use:
 
 ```sh
 ODIN_GRAPH_FULL_CONFORMANCE=1 sh scripts/verify-current-convergence.sh
