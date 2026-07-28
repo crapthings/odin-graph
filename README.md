@@ -1,16 +1,22 @@
 # odin-graph
 
-> Experimental Git repository for the in-memory RDF graph kernel.
-> Its `v0.1.0` tag is a Garden-pinned experimental baseline, not a promise of
-> an independently supported public API release. `odin-sparql v0.7.0` keeps
-> its public `Memory_Dataset` self-contained over `odin-rdf`; Graph is an
-> optional adapter, not a core SPARQL release dependency.
+> **Status:** experimental; `v0.1.0` is a Garden-pinned baseline, not an
+> independently supported public API release.
+>
+> **Role:** an in-memory RDF graph kernel and migration evidence for proven
+> consumers.
+>
+> **Not:** a Store, SPARQL engine, reasoner, or required SPARQL dependency.
 
 `odin-graph` is an experimental in-memory RDF graph kernel for the Odin
 semantic ecosystem. The scope of any supported external release is extracted
 only from behavior that concrete consumers have proven in integration tests.
 Its SPARQL adapter remains useful migration evidence, but it does not determine
 the dependency contract of the released SPARQL core.
+
+**Start here:** [local verification](#development) ·
+[development plan](TODO.md) ·
+[Garden architecture](../odin-garden/docs/architecture.md)
 
 ```mermaid
 flowchart LR
@@ -24,7 +30,7 @@ The governing ecosystem boundary and extraction gate live in
 The decision to defer a published extraction is recorded in
 [`../odin-garden/docs/adr/0001-defer-odin-graph.md`](../odin-garden/docs/adr/0001-defer-odin-graph.md).
 
-## Intended scope
+## Scope
 
 The first implementation milestone provides:
 
@@ -36,7 +42,7 @@ The first implementation milestone provides:
   Dataset adapter;
 - documented resource limits, ownership, and error behavior.
 
-## Explicit non-goals
+## Boundaries
 
 - RDF parsing, writing, or canonicalization;
 - SPARQL syntax, algebra, query planning, or result encoding;
@@ -47,13 +53,13 @@ The first implementation milestone provides:
 Durability and operational transaction semantics belong to a future,
 independent `odin-store` only when a concrete requirement exists.
 
-## Development plan
+## Roadmap
 
 The staged work and acceptance conditions are in [TODO.md](TODO.md). Do not
 promote it to a supported component dependency until the Garden extraction gate
 has produced the required multi-consumer evidence.
 
-## Local verification
+## Development
 
 With `odin-rdf` checked out beside this repository at the release pinned by
 Garden, run:
